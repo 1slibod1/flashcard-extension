@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Flashcard Generator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f13;
+      color: #e8e8f0;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #f0f0ff;
+    }
+
+    .subtitle {
+      font-size: 11px;
+      color: #7070a0;
+      margin-top: 2px;
+    }
+
+    .divider {
+      height: 1px;
+      background: #1e1e2e;
+      margin: 4px 0 16px;
+    }
+
+    /* Status area */
+    #status-area {
+      display: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    #status-area.loading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #1a1a2e;
+      border: 1px solid #2a2a4e;
+      color: #a78bfa;
+    }
+
+    #status-area.error {
+      display: block;
+      background: #2a1a1a;
+      border: 1px solid #4e2a2a;
+      color: #f87171;
+    }
+
+    #status-area.done {
+      display: block;
+      background: #1a2a1e;
+      border: 1px solid #2a4e32;
+      color: #4ade80;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #a78bfa33;
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .card-preview {
+      margin-top: 10px;
+    }
+
+    .card-item {
+      background: #0f1a12;
+      border: 1px solid #2a3a2e;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+    }
+
+    .card-front {
+      font-size: 11px;
+      font-weight: 600;
+      color: #4ade80;
+      margin-bottom: 4px;
+    }
+
+    .card-back {
+      font-size: 11px;
+      color: #7aad88;
+    }
+
+    .instructions {
+      background: #1a1a24;
+      border: 1px solid #2a2a3a;
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .step:last-child { margin-bottom: 0; }
+
+    .step-num {
+      background: #6c63ff22;
+      color: #a78bfa;
+      font-size: 11px;
+      font-weight: 700;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-text {
+      font-size: 12px;
+      color: #9090c0;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">🃏</div>
+    <div>
+      <h1>AI Flashcard Generator</h1>
+      <div class="subtitle">Powered by GPT-4o mini · Free to use</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div id="status-area"></div>
+
+  <div class="instructions">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">Select any text on a webpage</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Right-click → <strong style="color:#c4b5fd">✨ Generate Flashcards from Selection</strong></div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">A JSON file will download automatically to your computer</div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
