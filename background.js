@@ -1,7 +1,7 @@
 // background.js - Service worker for AI Flashcard Generator
 // NOTE: Replace YOUR-APP-NAME below with your actual Vercel app name after deploying
 
-const SERVER_URL = "https://YOUR-APP-NAME.vercel.app/api/flashcards";
+const SERVER_URL = "https://flashcard-extensions.vercel.app/api/flashcards";
 
 // Create context menu item on install
 chrome.runtime.onInstalled.addListener(() => {
