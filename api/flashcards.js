@@ -5,7 +5,12 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { text } = req.body;
+  // Handle GET requests (e.g. visiting in browser)
+  if (req.method !== "POST") {
+    return res.status(200).json({ message: "Flashcard API is running! Send a POST request with { text } to generate flashcards." });
+  }
+
+  const text = req.body?.text;
   if (!text) return res.status(400).json({ error: "No text provided" });
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
