@@ -2,20 +2,16 @@
 
 // ── DOWNLOAD TOGGLE ────────────────────────────────────
 const downloadToggle = document.getElementById('download-toggle');
-
-// Load saved preference (default: off)
 chrome.storage.local.get('downloadJson', ({ downloadJson }) => {
   downloadToggle.checked = downloadJson === true;
 });
-
-// Save on change
 downloadToggle.addEventListener('change', () => {
   chrome.storage.local.set({ downloadJson: downloadToggle.checked });
 });
 
 // ── STATE ──────────────────────────────────────────────
-let decks = {};        // { deckId: { name, cards: [{front,back}] } }
-let progress = {};     // { deckId: { cardIndex: 'known' | 'learning' } }
+let decks = {};
+let progress = {};
 let currentDeckId = null;
 let studyCards = [];
 let studyIndex = 0;
@@ -43,6 +39,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     if (tab.dataset.tab === 'learn') renderLearnDeckList();
     if (tab.dataset.tab === 'quiz') renderQuizDeckList();
     if (tab.dataset.tab === 'progress') renderProgress();
+    if (tab.dataset.tab === 'decks') renderDecksManager();
   });
 });
 
@@ -59,13 +56,12 @@ function checkStatus() {
       statusArea.className = 'status-box error';
       statusArea.innerHTML = '⚠️ ' + (error || 'Something went wrong.');
     } else if (status === 'done' && flashcards) {
-      // Save as a new deck
       const deckId = 'deck_' + Date.now();
-      const name = 'Deck ' + new Date().toLocaleDateString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+      const name = 'Deck ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
       decks[deckId] = { name, cards: flashcards };
       saveDecks();
       statusArea.className = 'status-box done';
-      statusArea.innerHTML = '✓ ' + flashcards.length + ' flashcards generated! Go to Learn or Quiz to study them.';
+      statusArea.innerHTML = `✓ ${flashcards.length} flashcards saved as "<strong>${name}</strong>"! Rename it in the Decks tab.`;
       chrome.storage.local.remove('status');
     } else {
       statusArea.className = '';
@@ -78,7 +74,7 @@ checkStatus();
 const pollInterval = setInterval(checkStatus, 1000);
 window.addEventListener('unload', () => clearInterval(pollInterval));
 
-// ── DECK LIST HELPER ───────────────────────────────────
+// ── DECK LIST HELPER (for Learn/Quiz) ──────────────────
 function renderDeckList(containerId, selectedCallback) {
   const container = document.getElementById(containerId);
   const ids = Object.keys(decks);
@@ -102,16 +98,90 @@ function renderDeckList(containerId, selectedCallback) {
   return ids;
 }
 
+// ── DECKS MANAGER ──────────────────────────────────────
+function renderDecksManager() {
+  const container = document.getElementById('decks-list');
+  const ids = Object.keys(decks);
+  container.innerHTML = '';
+
+  if (ids.length === 0) {
+    container.innerHTML = '<div class="empty-state">No decks yet.<br>Generate some flashcards on the Home tab first!</div>';
+    return;
+  }
+
+  ids.forEach(id => {
+    const deck = decks[id];
+    const item = document.createElement('div');
+    item.className = 'manage-deck-item';
+    item.innerHTML = `
+      <div class="manage-deck-info">
+        <div class="manage-deck-name" id="name-display-${id}">${deck.name}</div>
+        <div class="deck-meta">${deck.cards.length} cards</div>
+      </div>
+      <div class="manage-deck-actions">
+        <button class="btn-icon btn-rename" data-id="${id}" title="Rename">✏️</button>
+        <button class="btn-icon btn-delete" data-id="${id}" title="Delete">🗑️</button>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+
+  // Rename buttons
+  container.querySelectorAll('.btn-rename').forEach(btn => {
+    btn.addEventListener('click', () => startRename(btn.dataset.id));
+  });
+
+  // Delete buttons
+  container.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', () => deleteDeck(btn.dataset.id));
+  });
+}
+
+function startRename(id) {
+  const nameEl = document.getElementById(`name-display-${id}`);
+  const currentName = decks[id].name;
+
+  // Replace name display with input
+  nameEl.innerHTML = `<input class="rename-input" id="rename-input-${id}" type="text" value="${currentName}" maxlength="40" />`;
+  const input = document.getElementById(`rename-input-${id}`);
+  input.focus();
+  input.select();
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') commitRename(id, input.value);
+    if (e.key === 'Escape') renderDecksManager();
+  });
+
+  input.addEventListener('blur', () => commitRename(id, input.value));
+}
+
+function commitRename(id, newName) {
+  const trimmed = newName.trim();
+  if (trimmed && decks[id]) {
+    decks[id].name = trimmed;
+    saveDecks();
+  }
+  renderDecksManager();
+}
+
+function deleteDeck(id) {
+  if (confirm(`Delete "${decks[id].name}"? This cannot be undone.`)) {
+    delete decks[id];
+    delete progress[id];
+    saveDecks();
+    saveProgress();
+    renderDecksManager();
+  }
+}
+
 // ── LEARN MODE ─────────────────────────────────────────
 function renderLearnDeckList() {
-  const ids = renderDeckList('learn-deck-list', (id) => {
+  renderDeckList('learn-deck-list', (id) => {
     currentDeckId = id;
     document.getElementById('learn-start-btn').disabled = false;
   });
   document.getElementById('learn-start-btn').disabled = true;
   currentDeckId = null;
-
-  // Reset learn UI
   document.getElementById('learn-deck-select').style.display = 'block';
   document.getElementById('learn-study').style.display = 'none';
   document.getElementById('learn-complete').style.display = 'none';
@@ -128,9 +198,7 @@ document.getElementById('learn-start-btn').addEventListener('click', () => {
 });
 
 function showLearnCard() {
-  if (studyIndex >= studyCards.length) {
-    showLearnComplete(); return;
-  }
+  if (studyIndex >= studyCards.length) { showLearnComplete(); return; }
   const card = studyCards[studyIndex];
   document.getElementById('learn-front').textContent = card.front;
   document.getElementById('learn-back').textContent = card.back;
@@ -148,12 +216,10 @@ document.getElementById('card-container').addEventListener('click', () => {
 });
 
 document.getElementById('btn-got-it').addEventListener('click', () => {
-  const card = studyCards[studyIndex];
   if (!progress[currentDeckId]) progress[currentDeckId] = {};
   progress[currentDeckId][studyIndex] = 'known';
   saveProgress();
-  studyKnown++;
-  studyIndex++;
+  studyKnown++; studyIndex++;
   showLearnCard();
 });
 
@@ -182,6 +248,7 @@ document.getElementById('learn-again-btn').addEventListener('click', () => {
 
 // ── QUIZ MODE ──────────────────────────────────────────
 let quizDeckId = null;
+let quizCards = [], quizIndex = 0, quizScore = 0;
 
 function renderQuizDeckList() {
   renderDeckList('quiz-deck-list', (id) => {
@@ -194,8 +261,6 @@ function renderQuizDeckList() {
   document.getElementById('quiz-study').style.display = 'none';
   document.getElementById('quiz-complete').style.display = 'none';
 }
-
-let quizCards = [], quizIndex = 0, quizScore = 0;
 
 document.getElementById('quiz-start-btn').addEventListener('click', () => {
   if (!quizDeckId) return;
@@ -246,7 +311,7 @@ function showQuizComplete() {
   document.getElementById('quiz-complete').style.display = 'block';
   const pct = Math.round((quizScore / quizCards.length) * 100);
   document.getElementById('quiz-complete-sub').textContent =
-    `You scored ${quizScore}/${quizCards.length} (${pct}%). ${pct >= 80 ? 'Great job! 🌟' : pct >= 50 ? 'Good effort, keep going!' : 'Keep practicing, you\'ll get there!'}`;
+    `You scored ${quizScore}/${quizCards.length} (${pct}%). ${pct >= 80 ? 'Great job! 🌟' : pct >= 50 ? 'Good effort, keep going!' : "Keep practicing, you'll get there!"}`;
 }
 
 document.getElementById('quiz-again-btn').addEventListener('click', () => {
@@ -260,7 +325,6 @@ document.getElementById('quiz-again-btn').addEventListener('click', () => {
 function renderProgress() {
   const deckIds = Object.keys(decks);
   let totalCards = 0, totalKnown = 0, totalLearning = 0;
-
   const listEl = document.getElementById('deck-progress-list');
   listEl.innerHTML = '';
 
@@ -271,10 +335,7 @@ function renderProgress() {
     const learning = Object.values(prog).filter(v => v === 'learning').length;
     const total = deck.cards.length;
     const pct = total > 0 ? Math.round((known / total) * 100) : 0;
-
-    totalCards += total;
-    totalKnown += known;
-    totalLearning += learning;
+    totalCards += total; totalKnown += known; totalLearning += learning;
 
     const item = document.createElement('div');
     item.className = 'deck-progress-item';
