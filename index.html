@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CardSnap — Snap any text, get flashcards</title>
+  <meta name="description" content="Select any text on the web and instantly generate AI-powered flashcards. Free Chrome extension." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080810;
+      --surface: #10101c;
+      --border: #1e1e30;
+      --accent: #7c6dfa;
+      --accent2: #fa6d9a;
+      --text: #f0f0fa;
+      --muted: #6060a0;
+      --card-bg: #12121f;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE TEXTURE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* ── GLOW ORBS ── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .orb-1 { width: 600px; height: 600px; background: var(--accent); top: -200px; left: -100px; }
+    .orb-2 { width: 500px; height: 500px; background: var(--accent2); bottom: 100px; right: -100px; }
+    .orb-3 { width: 300px; height: 300px; background: #6dfac8; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 18px 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(8,8,16,0.7);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .nav-logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 20px;
+      color: var(--text);
+      text-decoration: none;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .nav-logo-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+    }
+
+    .nav-cta {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .nav-cta:hover { opacity: 0.85; transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(124,109,250,0.1);
+      border: 1px solid rgba(124,109,250,0.25);
+      border-radius: 99px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #a99dfc;
+      margin-bottom: 28px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    .badge-dot {
+      width: 6px; height: 6px;
+      background: #a99dfc;
+      border-radius: 50%;
+      animation: pulse 2s ease infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(48px, 8vw, 88px);
+      line-height: 1.0;
+      letter-spacing: -0.03em;
+      margin-bottom: 24px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .h1-line2 {
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(16px, 2.5vw, 20px);
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 48px;
+      font-weight: 300;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    /* ── WAITLIST FORM ── */
+    .waitlist-form {
+      display: flex; gap: 10px;
+      max-width: 440px; width: 100%;
+      margin: 0 auto 20px;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .waitlist-input {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .waitlist-input:focus { border-color: var(--accent); }
+    .waitlist-input::placeholder { color: #40405a; }
+
+    .waitlist-btn {
+      background: linear-gradient(135deg, var(--accent), #9d6dfa);
+      border: none; border-radius: 10px;
+      padding: 13px 24px;
+      color: white;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .waitlist-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .waitlist-note {
+      font-size: 12px; color: #40405a;
+      animation: fadeUp 0.6s 0.35s ease both;
+    }
+
+    .success-msg {
+      display: none;
+      background: rgba(74, 222, 128, 0.1);
+      border: 1px solid rgba(74, 222, 128, 0.2);
+      border-radius: 10px;
+      padding: 13px 24px;
+      color: #4ade80;
+      font-size: 14px;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    /* ── DEMO CARD ── */
+    .demo-wrap {
+      position: relative;
+      margin-top: 80px;
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+
+    .demo-label {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--muted); margin-bottom: 16px;
+    }
+
+    .demo-cards {
+      display: flex; gap: 14px; justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .demo-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+      width: 220px;
+      text-align: left;
+      transition: transform 0.3s, border-color 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .demo-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .demo-card:hover { transform: translateY(-4px); border-color: rgba(124,109,250,0.3); }
+    .demo-card:hover::before { opacity: 1; }
+
+    .demo-card-label {
+      font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--accent); margin-bottom: 8px;
+    }
+
+    .demo-card-front {
+      font-size: 13px; font-weight: 600;
+      color: var(--text); margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .demo-card-back {
+      font-size: 11px; color: var(--muted); line-height: 1.5;
+    }
+
+    /* ── SECTION STYLES ── */
+    section {
+      position: relative; z-index: 1;
+      padding: 100px 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.12em;
+      color: var(--accent); margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      font-size: 17px; color: var(--muted);
+      max-width: 520px; font-weight: 300;
+      margin-bottom: 60px;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .step-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s, border-color 0.3s;
+    }
+
+    .step-card:hover { transform: translateY(-4px); border-color: rgba(124,109,250,0.3); }
+
+    .step-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 64px; font-weight: 800;
+      color: rgba(124,109,250,0.08);
+      position: absolute; top: 10px; right: 20px;
+      line-height: 1;
+    }
+
+    .step-icon {
+      font-size: 28px; margin-bottom: 14px;
+    }
+
+    .step-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px; font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .step-desc { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* ── FEATURES ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      transition: transform 0.3s, border-color 0.3s;
+    }
+
+    .feature-card:hover { transform: translateY(-4px); border-color: rgba(124,109,250,0.3); }
+
+    .feature-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; margin-bottom: 16px;
+    }
+
+    .feature-icon.purple { background: rgba(124,109,250,0.15); }
+    .feature-icon.pink { background: rgba(250,109,154,0.15); }
+    .feature-icon.green { background: rgba(109,250,200,0.15); }
+    .feature-icon.orange { background: rgba(250,180,109,0.15); }
+    .feature-icon.blue { background: rgba(109,180,250,0.15); }
+    .feature-icon.yellow { background: rgba(250,230,109,0.15); }
+
+    .feature-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 16px; font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .feature-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* ── CTA SECTION ── */
+    .cta-section {
+      text-align: center;
+      padding: 100px 24px;
+      position: relative; z-index: 1;
+    }
+
+    .cta-box {
+      max-width: 640px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 60px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+
+    .cta-box h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 800; line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+
+    .cta-box p {
+      color: var(--muted); font-size: 16px;
+      margin-bottom: 36px; font-weight: 300;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 32px 40px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 16px;
+    }
+
+    .footer-logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800; font-size: 16px;
+      color: var(--text);
+    }
+
+    .footer-note { font-size: 13px; color: var(--muted); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal {
+      opacity: 0; transform: translateY(30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      position: relative; z-index: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0 40px;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      nav { padding: 16px 20px; }
+      .waitlist-form { flex-direction: column; }
+      footer { flex-direction: column; text-align: center; }
+      .cta-box { padding: 40px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- BACKGROUND -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-icon">🃏</div>
+      CardSnap
+    </a>
+    <a href="#waitlist" class="nav-cta">Join Waitlist</a>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">
+      <div class="badge-dot"></div>
+      Free Chrome Extension · Powered by AI
+    </div>
+
+    <h1>
+      Snap any text,<br>
+      <span class="h1-line2">get flashcards.</span>
+    </h1>
+
+    <p class="hero-sub">
+      Select text on any webpage, right-click, and instantly generate AI-powered flashcards. Study smarter without the manual work.
+    </p>
+
+    <div class="waitlist-form" id="waitlist">
+      <input class="waitlist-input" type="email" id="email-input" placeholder="Enter your email address" />
+      <button class="waitlist-btn" id="waitlist-btn">Join Waitlist</button>
+    </div>
+    <div class="success-msg" id="success-msg">🎉 You're on the list! We'll let you know when CardSnap launches.</div>
+    <p class="waitlist-note">No spam. Just a launch notification.</p>
+
+    <div class="demo-wrap">
+      <div class="demo-label">Sample generated flashcards</div>
+      <div class="demo-cards">
+        <div class="demo-card">
+          <div class="demo-card-label">Flashcard</div>
+          <div class="demo-card-front">What is photosynthesis?</div>
+          <div class="demo-card-back">The process plants use to convert sunlight, water and CO₂ into glucose and oxygen.</div>
+        </div>
+        <div class="demo-card">
+          <div class="demo-card-label">Flashcard</div>
+          <div class="demo-card-front">What is the mitochondria's role?</div>
+          <div class="demo-card-back">The powerhouse of the cell — produces ATP energy through cellular respiration.</div>
+        </div>
+        <div class="demo-card">
+          <div class="demo-card-label">Flashcard</div>
+          <div class="demo-card-front">Define Newton's First Law</div>
+          <div class="demo-card-back">An object at rest stays at rest, and an object in motion stays in motion unless acted on by an external force.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- HOW IT WORKS -->
+  <section>
+    <div class="section-label reveal">How it works</div>
+    <h2 class="section-title reveal">Three steps.<br>Zero effort.</h2>
+    <p class="section-sub reveal">CardSnap does the hard work so you can focus on actually learning.</p>
+
+    <div class="steps">
+      <div class="step-card reveal">
+        <div class="step-num">1</div>
+        <div class="step-icon">🖱️</div>
+        <div class="step-title">Select any text</div>
+        <div class="step-desc">Highlight text on any webpage — an article, textbook, Wikipedia, anything.</div>
+      </div>
+      <div class="step-card reveal">
+        <div class="step-num">2</div>
+        <div class="step-icon">✨</div>
+        <div class="step-title">Right-click & snap</div>
+        <div class="step-desc">Click "Generate Flashcards from Selection" in the context menu. AI does the rest.</div>
+      </div>
+      <div class="step-card reveal">
+        <div class="step-num">3</div>
+        <div class="step-icon">🧠</div>
+        <div class="step-title">Study & remember</div>
+        <div class="step-desc">Your flashcards are saved instantly. Quiz yourself, flip cards, and track your progress.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- FEATURES -->
+  <section>
+    <div class="section-label reveal">Features</div>
+    <h2 class="section-title reveal">Everything you need<br>to study smarter.</h2>
+    <p class="section-sub reveal">Built for students, researchers, and lifelong learners.</p>
+
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon purple">⚡</div>
+        <div class="feature-title">Instant generation</div>
+        <div class="feature-desc">Select text and get 3–10 flashcards in seconds. No copy-pasting, no manual typing.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon pink">🎯</div>
+        <div class="feature-title">Quiz mode</div>
+        <div class="feature-desc">Test yourself with written answers. Reveal the correct answer and self-mark your score.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon green">🃏</div>
+        <div class="feature-title">Learn mode</div>
+        <div class="feature-desc">Flip through cards, mark what you know and what needs more practice.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon orange">📊</div>
+        <div class="feature-title">Progress tracking</div>
+        <div class="feature-desc">See how many cards you've mastered across all your decks with visual progress bars.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon blue">📁</div>
+        <div class="feature-title">Deck management</div>
+        <div class="feature-desc">Rename and delete your decks. Keep your study sessions organised your way.</div>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon yellow">🆓</div>
+        <div class="feature-title">Completely free</div>
+        <div class="feature-desc">No account needed, no credit card, no limits. Just install and start studying.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <div class="cta-box reveal">
+      <h2>Ready to study<br>smarter?</h2>
+      <p>Join the waitlist and be the first to know when CardSnap launches on the Chrome Web Store.</p>
+      <div class="waitlist-form" style="margin-bottom:0">
+        <input class="waitlist-input" type="email" id="email-input-2" placeholder="Enter your email address" />
+        <button class="waitlist-btn" id="waitlist-btn-2">Join Waitlist</button>
+      </div>
+      <div class="success-msg" id="success-msg-2" style="margin-top:12px;max-width:100%"></div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-logo">🃏 CardSnap</div>
+    <div class="footer-note">Snap any text, get flashcards. · © 2026 CardSnap</div>
+  </footer>
+
+  <script>
+    // ── SCROLL REVEAL ──
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('visible'); }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach((el, i) => {
+      el.style.transitionDelay = (i % 4) * 0.08 + 's';
+      observer.observe(el);
+    });
+
+    // ── WAITLIST FORM ──
+    function handleSignup(emailId, btnId, successId) {
+      const emailInput = document.getElementById(emailId);
+      const btn = document.getElementById(btnId);
+      const successMsg = document.getElementById(successId);
+
+      btn.addEventListener('click', () => {
+        const email = emailInput.value.trim();
+        if (!email || !email.includes('@')) {
+          emailInput.style.borderColor = '#f87171';
+          emailInput.focus();
+          setTimeout(() => emailInput.style.borderColor = '', 2000);
+          return;
+        }
+
+        btn.textContent = 'Joining...';
+        btn.disabled = true;
+
+        // Store email in localStorage for now
+        // Replace this with a real backend call (e.g. Mailchimp, ConvertKit, or your own API)
+        const emails = JSON.parse(localStorage.getItem('waitlist') || '[]');
+        if (!emails.includes(email)) emails.push(email);
+        localStorage.setItem('waitlist', JSON.stringify(emails));
+
+        setTimeout(() => {
+          emailInput.style.display = 'none';
+          btn.style.display = 'none';
+          successMsg.style.display = 'block';
+          successMsg.textContent = '🎉 You\'re on the list! We\'ll let you know when CardSnap launches.';
+        }, 600);
+      });
+
+      emailInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') btn.click();
+      });
+    }
+
+    handleSignup('email-input', 'waitlist-btn', 'success-msg');
+    handleSignup('email-input-2', 'waitlist-btn-2', 'success-msg-2');
+  </script>
+</body>
+</html>
