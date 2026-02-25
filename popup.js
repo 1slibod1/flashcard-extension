@@ -1,5 +1,18 @@
 // popup.js — Full flashcard study app
 
+// ── DOWNLOAD TOGGLE ────────────────────────────────────
+const downloadToggle = document.getElementById('download-toggle');
+
+// Load saved preference (default: off)
+chrome.storage.local.get('downloadJson', ({ downloadJson }) => {
+  downloadToggle.checked = downloadJson === true;
+});
+
+// Save on change
+downloadToggle.addEventListener('change', () => {
+  chrome.storage.local.set({ downloadJson: downloadToggle.checked });
+});
+
 // ── STATE ──────────────────────────────────────────────
 let decks = {};        // { deckId: { name, cards: [{front,back}] } }
 let progress = {};     // { deckId: { cardIndex: 'known' | 'learning' } }

@@ -1,7 +1,7 @@
 // background.js - Service worker for AI Flashcard Generator
 // NOTE: Replace YOUR-APP-NAME below with your actual Vercel app name after deploying
 
-const SERVER_URL = "https://flashcard-extensions.vercel.app/api/flashcards";
+const SERVER_URL = "https://YOUR-APP-NAME.vercel.app/api/flashcards";
 
 // Create context menu item on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -25,8 +25,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       const flashcards = await generateFlashcards(selectedText);
       chrome.storage.local.set({ status: "done", flashcards, lastGenerated: new Date().toISOString() });
 
-      // Auto-download the JSON file
-      downloadFlashcards(flashcards);
+      // Only download if user has enabled it
+      chrome.storage.local.get("downloadJson", ({ downloadJson }) => {
+        if (downloadJson === true) downloadFlashcards(flashcards);
+      });
 
     } catch (err) {
       chrome.storage.local.set({ status: "error", error: err.message });

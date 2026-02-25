@@ -100,6 +100,15 @@
     .complete-sub { font-size: 12px; color: #6060a0; margin-bottom: 16px; line-height: 1.5; }
     .btn-again { padding: 10px 24px; background: #6c63ff; border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
     .btn-again:hover { opacity: 0.9; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+    .toggle-label { font-size: 12px; color: #9090c0; }
+    .toggle-label span { font-size: 10px; color: #50508a; display: block; margin-top: 2px; }
+    .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: #2a2a3a; border-radius: 20px; cursor: pointer; transition: 0.2s; }
+    .toggle-slider:before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: #6060a0; border-radius: 50%; transition: 0.2s; }
+    .toggle input:checked + .toggle-slider { background: #6c63ff33; }
+    .toggle input:checked + .toggle-slider:before { transform: translateX(16px); background: #a78bfa; }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
@@ -126,6 +135,16 @@
   <!-- HOME -->
   <div class="screen active" id="screen-home">
     <div id="status-area"></div>
+    <div class="toggle-row">
+      <div class="toggle-label">
+        Download JSON file
+        <span>Save flashcards as a file when generated</span>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="download-toggle">
+        <div class="toggle-slider"></div>
+      </label>
+    </div>
     <div class="instructions">
       <div class="step"><div class="step-num">1</div><div class="step-text">Select any text on a webpage</div></div>
       <div class="step"><div class="step-num">2</div><div class="step-text">Right-click → <strong style="color:#c4b5fd">✨ Generate Flashcards from Selection</strong></div></div>
