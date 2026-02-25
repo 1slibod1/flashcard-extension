@@ -642,7 +642,7 @@
       const btn = document.getElementById(btnId);
       const successMsg = document.getElementById(successId);
 
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const email = emailInput.value.trim();
         if (!email || !email.includes('@')) {
           emailInput.style.borderColor = '#f87171';
@@ -654,18 +654,29 @@
         btn.textContent = 'Joining...';
         btn.disabled = true;
 
-        // Store email in localStorage for now
-        // Replace this with a real backend call (e.g. Mailchimp, ConvertKit, or your own API)
-        const emails = JSON.parse(localStorage.getItem('waitlist') || '[]');
-        if (!emails.includes(email)) emails.push(email);
-        localStorage.setItem('waitlist', JSON.stringify(emails));
+        try {
+          const res = await fetch('/api/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const data = await res.json();
 
-        setTimeout(() => {
-          emailInput.style.display = 'none';
-          btn.style.display = 'none';
-          successMsg.style.display = 'block';
-          successMsg.textContent = '🎉 You\'re on the list! We\'ll let you know when CardSnap launches.';
-        }, 600);
+          if (data.success) {
+            emailInput.style.display = 'none';
+            btn.style.display = 'none';
+            successMsg.style.display = 'block';
+            successMsg.textContent = "🎉 You're on the list! We'll let you know when CardSnap launches.";
+          } else {
+            btn.textContent = 'Join Waitlist';
+            btn.disabled = false;
+            emailInput.style.borderColor = '#f87171';
+            setTimeout(() => emailInput.style.borderColor = '', 2000);
+          }
+        } catch (err) {
+          btn.textContent = 'Join Waitlist';
+          btn.disabled = false;
+        }
       });
 
       emailInput.addEventListener('keydown', (e) => {
