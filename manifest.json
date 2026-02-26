@@ -7,7 +7,7 @@
     "contextMenus",
     "storage",
     "downloads",
-    "activeTab",
+    "activeTab"
   ],
   "background": {
     "service_worker": "background.js"
